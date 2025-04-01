@@ -67,6 +67,13 @@ Create a virtualenv if required and install required packages using "pip install
     ```python3 CI_Jobhistory.py --filter ```   This command line allows user to fetch querry based on search filter.
 
 
+    ```python3 CI_Jobhistory.py --zone ```     This command line allows user to fetch querry based on zone type.
+
+    ```python3 CI_Jobhistory.py --job_type ``` This command line allows user to fetch querry based on job type.
+             
+    ```python3 CI_Jobhistory.py --filter ```   This command line allows user to fetch querry based on search filter.
+
+
     1. Interactive Execution: The CI_JobHistory.py can be executed in a interactive mode by setting JENKINS variable as False in config.ini file.
 
     2. Non-Interactive Execution: The CI_JobHistory.py can be executed in a non-interactive mode by setting JENKINS variable as True in config.ini file, along with the JENKINS variable user needs to provide values for the following variables:
