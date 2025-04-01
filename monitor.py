@@ -4,7 +4,7 @@ import sys
 from bs4 import BeautifulSoup
 import urllib3
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import constants
 
@@ -39,7 +39,31 @@ def fetch_release_date(release):
         return "Error while sending request to url"
     except json.JSONDecodeError as e:
         return "Failed to extract the spy-links"
+    
+def fetch_build_time(build):
+    '''
+    Returns the created time (HH:MM) of the release in UTC
+    '''
+    url = constants.PROW_VIEW_URL + build[8:] + '/prowjob.json'
+    try:
+        response = requests.get(url, verify=False, timeout=15)
+        if response.status_code == 200:
+            buildtime = json.loads(response.text)
+            timestamp_str=buildtime["metadata"]["creationTimestamp"]
+            utc_time = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
+            ist_time = utc_time + timedelta(hours=5, minutes=30)
+            formatted_time = ist_time.strftime("%H:%M")
 
+            return formatted_time
+        else:
+            return 'ERROR'
+    except requests.Timeout:
+        return "Request timed out"
+    except requests.RequestException:
+        return "Error while sending request to url"
+    except json.JSONDecodeError as e:
+        return 'Error while parsing prowjob.json'
+    
 def set_prow_url(ci_job_type: str)->str:
     '''
     Returns PROW_URL value based on command line argument job_type
@@ -1218,10 +1242,12 @@ def get_brief_job_info(build_list,prow_ci_name,zone=None):
         build_status = check_job_status(build)
         cluster_status=cluster_deploy_status(build)
         sensitive_info_expose_status=check_if_sensitive_info_exposed(build)
+        build_time=fetch_build_time(build)
         i=i+1
         job_dict = {}
         job_dict["Job"] = prow_ci_name
         job_dict["Prow Build ID"] = build_id
+        job_dict["Time"]=build_time
         job_dict["Install Status"] = cluster_status
         if sensitive_info_expose_status == True:
             job_dict["Lease"]="Build log removed"
@@ -1278,6 +1304,7 @@ def get_detailed_job_info(build_list,prow_ci_name,zone=None):
             continue
         i=i+1
         print(i,"Job link:"+constants.JOB_LINK_URL+build)
+        print("Build started at:" +fetch_build_time(build))
 
         build_status = check_job_status(build)
         sensitive_info_expose_status=check_if_sensitive_info_exposed(build)
