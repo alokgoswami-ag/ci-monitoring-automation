@@ -4,7 +4,7 @@ import sys
 from bs4 import BeautifulSoup
 import urllib3
 import requests
-from datetime import datetime
+from datetime import datetime , timedelta
 import xml.etree.ElementTree as ET
 import constants
 
@@ -38,6 +38,39 @@ def fetch_release_date(release):
         return "Error while sending request to url"
     except json.JSONDecodeError as e:
         return "Failed to extract the spy-links"
+    
+def fetch_build_time(build):
+    '''
+    Returns the created time (HH:MM) and date (YYYY-MM-DD) of the release in IST
+    '''
+    url = constants.PROW_VIEW_URL + build[8:] + '/prowjob.json'
+    
+    try:
+        response = requests.get(url, verify=False, timeout=15)
+        if response.status_code == 200:
+            buildtime = json.loads(response.text)
+            timestamp_str = buildtime["metadata"]["creationTimestamp"]
+        
+        # Convert timestamp to datetime object (UTC)
+            utc_time = datetime.strptime(timestamp_str, "%Y-%m-%dT%H:%M:%SZ")
+        
+        # Convert UTC to IST (UTC +5:30)
+            ist_time = utc_time + timedelta(hours=5, minutes=30)
+        
+        # Extract date and time separately
+            ist_date = ist_time.strftime("%Y-%m-%d")  # YYYY-MM-DD
+            ist_time_formatted = ist_time.strftime("%H:%M")  # HH:MM (without seconds)
+
+            return ist_date, ist_time_formatted  # Returning both date and time
+        else:
+            return f"ERROR: Received unexpected status code {response.status_code}"
+    
+    except requests.Timeout:
+        return "Request timed out", None
+    except requests.RequestException:
+        return "Error while sending request to URL", None
+    except (json.JSONDecodeError, KeyError):
+        return "Error while parsing prowjob.json", None
 
 def set_prow_url(ci_job_type: str)->str:
     '''
@@ -1194,6 +1227,7 @@ def get_brief_job_info(build_list,prow_ci_name,zone=None):
     for build in build_list:
         match = re.search(pattern_build_id, build)
         build_id = match.group(1)
+        _,time=fetch_build_time(build)
         lease, _ = get_quota_and_nightly(build)
         if zone is not None and lease not in zone :
             continue
@@ -1204,6 +1238,7 @@ def get_brief_job_info(build_list,prow_ci_name,zone=None):
         job_dict = {}
         job_dict["Job"] = prow_ci_name
         job_dict["Prow Build ID"] = build_id
+        job_dict["Time"]=time
         job_dict["Install Status"] = cluster_status
         if sensitive_info_expose_status == True:
             job_dict["Lease"]="Build log removed"
@@ -1255,7 +1290,10 @@ def get_detailed_job_info(build_list,prow_ci_name,zone=None):
             builds_to_deleted.append(build)
             continue
         i=i+1
+        date,time=fetch_build_time(build)
+
         print(i,"Job link:"+constants.JOB_LINK_URL+build)
+        print("Build start time: "+time +" "+date)
 
         build_status = check_job_status(build)
         sensitive_info_expose_status=check_if_sensitive_info_exposed(build)
