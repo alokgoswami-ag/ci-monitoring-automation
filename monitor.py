@@ -68,20 +68,16 @@ def fetch_build_time(build):
         # Extract date and time separately
             ist_date = ist_time.strftime("%Y-%m-%d")  # YYYY-MM-DD
             ist_time_formatted = ist_time.strftime("%H:%M")  # HH:MM (without seconds)
-
-            return ist_date, ist_time_formatted  # Returning both date and time
+            timestamp=ist_date+ist_time_formatted 
+            return timestamp # Returning timestamp
         else:
-            return "failed to get build time"
-        
+            return 'ERROR'
     except requests.Timeout:
-        print("Request timed out")
-        return None,None
+        return "Request timed out"
     except requests.RequestException:
-        print("Error while sending request to URL")
-        return None,None
-    except (json.JSONDecodeError, KeyError):
-        print("Error while parsing prowjob.json")
-        return None,None
+        return "Error while sending request to url"
+    except json.JSONDecodeError as e:
+        return 'Error while parsing prowjob.json'
 
 def set_prow_url(ci_job_type: str)->str:
     '''
@@ -1255,7 +1251,7 @@ def get_brief_job_info(build_list,prow_ci_name,zone=None):
     for build in build_list:
         match = re.search(pattern_build_id, build)
         build_id = match.group(1)
-        _,time=fetch_build_time(build)
+        time=fetch_build_time(build)
         lease, _ = get_quota_and_nightly(build)
         if zone is not None and lease not in zone :
             continue
@@ -1266,10 +1262,10 @@ def get_brief_job_info(build_list,prow_ci_name,zone=None):
         job_dict = {}
         job_dict["Job"] = prow_ci_name
         job_dict["Prow Build ID"] = build_id
-        if time is None:
-            job_dict["Time"]="unable to fetch time"
+        if time:
+            job_dict["Time"]=time[10:]
         else:
-            job_dict["Time"]=time
+            job_dict["Time"]="Failed to fetch time"
         job_dict["Install Status"] = cluster_status
         if sensitive_info_expose_status == True:
             job_dict["Lease"]="Build log removed"
@@ -1325,13 +1321,13 @@ def get_detailed_job_info(build_list,prow_ci_name,zone=None):
             builds_to_deleted.append(build)
             continue
         i=i+1
-        date,time=fetch_build_time(build)
+        time=fetch_build_time(build)
 
         print(i,"Job link:"+constants.JOB_LINK_URL+build)
-        if date and time is None:
-            print("Build start time: Unable to fetch time")
+        if time:
+            print("Build start time:",time)
         else:
-             print("Build start time: "+date +" "+time)
+            print("Build start time: Unable to fetch time")
         build_status = check_job_status(build)
         sensitive_info_expose_status=check_if_sensitive_info_exposed(build)
         
