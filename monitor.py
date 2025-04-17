@@ -1310,7 +1310,6 @@ def get_detailed_job_info(build_list,prow_ci_name,zone=None):
             builds_to_deleted.append(build)
             continue
         i=i+1
-
         print(i,"Job link:"+constants.JOB_LINK_URL+build)
         try:
             url = constants.PROW_VIEW_URL + build[8:] + '/prowjob.json'
